@@ -225,12 +225,12 @@ class NewBaseSplitLawin(BaseLawin):
 
 
 
-class SplitLawin(BaseSplitLawin):
+class SplitLawin(NewBaseSplitLawin):
     def __init__(self, arch_params) -> None:
         super().__init__(arch_params, LawinHead)
 
 
-class SplitLaweed(BaseSplitLawin):
+class SplitLaweed(NewBaseSplitLawin):
     def __init__(self, arch_params) -> None:
         super().__init__(arch_params, LaweedHead)
 
