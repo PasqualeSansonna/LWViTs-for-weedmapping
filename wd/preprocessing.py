@@ -60,7 +60,7 @@ def delete_empty_imgs(root, channels, tempdir_check=None):
 
 
 def copy_dataset(inpath, outpath):
-    shutil.copytree(inpath, outpath, dirs_exist_ok=True)
+    shutil.copytree(inpath, outpath, True)
     print('Dataset copied')
 
 
@@ -74,8 +74,13 @@ def preprocess(subset):
     else:
         raise NotImplementedError("Not valid subset")
 
-    copy_dataset(os.path.join(INPATH, subset), OUTPATH)
-    delete_empty_imgs(os.path.join(OUTPATH, subset), channels, tempdir_check='tmp')
+    if subset == "RedEdge":
+      copy_dataset(os.path.join(INPATH, subset), OUTPATH)
+      delete_empty_imgs(os.path.join(OUTPATH, subset), channels, tempdir_check='tmp')
+    else:
+      copy_dataset(os.path.join(INPATH, subset), "dataset/processed2")
+      delete_empty_imgs(os.path.join("dataset/processed2", subset), channels, tempdir_check='tmp')
+
 
 
 
