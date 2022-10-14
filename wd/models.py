@@ -3,6 +3,8 @@ from super_gradients.training.utils import get_param, HpmStruct
 from super_gradients.training import utils as sg_utils
 from torch import Tensor
 from torch.nn import functional as F
+from torch import nn, matmul
+from torch.nn.functional import softmax 
 
 from ezdl.utils.utilities import filter_none
 from ezdl.models.backbones.mit import MiTFusion
@@ -158,6 +160,31 @@ class BaseSplitLawin(BaseLawin):
         return [{'named_params': self.named_parameters()}]
 
 
+class SelfAttention(nn.Module):
+    def __init__(self, emb_dim, model_dim):
+        super(SelfAttention, self).__init__()
+        self.emb_dim=emb_dim
+        model_dim=model_dim
+        self.to_query = nn.Linear(emb_dim, model_dim, bias=False)
+        self.to_key = nn.Linear(emb_dim, model_dim, bias=False)
+        self.to_value = nn.Linear(emb_dim, model_dim, bias=False)
+        
+    def forward(self, inputs):
+        q = self.to_query(inputs)
+        k = self.to_key(inputs)
+        v = self.to_value(inputs)
+        #Compute attention score
+        attn_score = matmul(q, k.t())
+        softmax_attn_scores = softmax(attn_score, dim=-1)
+        v_formatted = v[:, None]
+        print(v_formatted)
+        softmax_attn_scores_transpose = softmax_attn_scores.t()
+        attn_scores_formatted = softmax_attn_scores_transpose[:, :, None]
+        v_weighted = attn_scores_formatted + v_formatted
+        output = v_weighted.sum(dim=0)
+
+
+
 
 class NewBaseSplitLawin(BaseLawin):
     def __init__(self, arch_params, lawin_class) -> None:
@@ -183,54 +210,30 @@ class NewBaseSplitLawin(BaseLawin):
         self.fusion = MiTFusion(self.backbone.channels,
                                 **filter_none({"p_local": p_local, "p_glob": p_glob, "fusion_type": fusion_type}))
 
-    def forward(self, x, H, W):
-        B, N, C = x.shape
-        q = self.q(x).reshape(B, N, self.num_heads, C // self.num_heads).permute(0, 2, 1, 3)
-
-        if self.sr_ratio > 1:
-            x_ = x.permute(0, 2, 1).reshape(B, C, H, W)
-            x_ = self.sr(x_).reshape(B, C, -1).permute(0, 2, 1)
-            x_ = self.norm(x_)
-            kv = self.kv(x_).reshape(B, -1, 2, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
-        else:
-            kv = self.kv(x).reshape(B, -1, 2, self.num_heads, C // self.num_heads).permute(2, 0, 3, 1, 4)
-        k, v = kv[0], kv[1]
-
-        attn = (q @ k.transpose(-2, -1)) * self.scale
-        attn = attn.softmax(dim=-1)
-        attn = self.attn_drop(attn)
-
-        x = (attn @ v).transpose(1, 2).reshape(B, N, C)
-        x = self.proj(x)
-        x = self.proj_drop(x)
-
-        return x
+    def forward(self, x: Tensor) -> Tensor:
+        main_channels = x[:, :self.main_channels, ::].contiguous()
+        side_channels = x[:, self.main_channels:, ::].contiguous()
+        first_feat_side = self.side_backbone(side_channels)
+        first_feat_main = self.backbone.partial_forward(main_channels, slice(0, 1))
+        first_feat = self.fusion((first_feat_main, first_feat_side))[0]
+        feat = (first_feat,) + self.backbone.partial_forward(first_feat, slice(1, 4))
+        y = self.decode_head(feat)  # 4x reduction in image size
+        y = F.interpolate(y, size=x.shape[2:], mode='bilinear', align_corners=False)  # to original image shape     
+        attn = SelfAttention(4, 3)
+        attn(y)
+        return y
     
 
-    def initialize_param_groups(self, lr: float, training_params: HpmStruct) -> list:
-        """
-
-        :return: list of dictionaries containing the key 'named_params' with a list of named params
-        """
-
-        def f(x):
-            return not (x[0].startswith('backbone') and int(x[0].split('.')[4]) == 0)
-
-        freeze_pretrained = sg_utils.get_param(training_params, 'freeze_pretrained', False)
-        if self.backbone_pretrained and freeze_pretrained:
-            return [{'named_params': list(filter(f, list(self.named_parameters())))}]
-        return [{'named_params': self.named_parameters()}]
 
 
 
 
-
-class SplitLawin(NewBaseSplitLawin):
+class SplitLawin(BaseSplitLawin):
     def __init__(self, arch_params) -> None:
         super().__init__(arch_params, LawinHead)
 
 
-class SplitLaweed(NewBaseSplitLawin):
+class SplitLaweed(BaseSplitLawin):
     def __init__(self, arch_params) -> None:
         super().__init__(arch_params, LaweedHead)
 
