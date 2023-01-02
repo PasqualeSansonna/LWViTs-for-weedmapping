@@ -1,6 +1,6 @@
 experiment:
-  name: weedmapping-rededge
-  group: SplitLawin
+  name: weedmapping-globalAttention
+  group: globalAttention
   continue_with_errors: True
   start_from_grid: 0
   start_from_run: 0

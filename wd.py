@@ -25,7 +25,7 @@ parser.add_argument('--subset', type=str, help="Subset chosen for preprocessing 
 def cli():
     args = parser.parse_args()
 
-    track_dir = args.dir
+    track_dir = "/content/drive/MyDrive/Sgarra-Sansonna/experiment"
     action = args.action
 
     if action == "download":
