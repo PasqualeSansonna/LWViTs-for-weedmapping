@@ -1,6 +1,6 @@
 experiment:
-  name: weedmapping-rededge
-  group: SplitLawin
+  name: weedmapping-globalAttention
+  group: NewSplitLawin
   continue_with_errors: True
   start_from_grid: 0
   start_from_run: 0
@@ -75,7 +75,7 @@ parameters:
         ]]
 
   model:
-    name: [wd/models/splitlawin]
+    name: [wd/models/newsplitlawin]
     params:
       backbone: [MiT-B0]
       backbone_pretrained: [True]
