@@ -276,7 +276,7 @@ class SplitLawin(BaseSplitLawin):
         super().__init__(arch_params, LawinHead)
 
 
-class NewSplitLawin(BaseSplitLawin):
+class NewSplitLawin(NewBaseSplitLawin):
     def __init__(self, arch_params) -> None:
         super().__init__(arch_params, LawinHead)
 
